@@ -1,9 +1,4 @@
-import SettingsForm from "@/components/SettingsForm";
-
-export const metadata = {
-  title: "Settings – Restaurant TV Menu"
-};
-
+import { redirect } from "next/navigation";
 export default function SettingsPage() {
-  return <SettingsForm />;
+  redirect("/admin/legacy-settings");
 }

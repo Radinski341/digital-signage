@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Banner, defaultBanners } from "@/lib/defaultBanners";
-import { BannerConfig, loadAllBanners, loadConfig, saveConfig } from "@/lib/storage";
+import { Banner } from "@/lib/defaultBanners";
+import {
+  BannerConfig,
+  loadAllBanners,
+  loadConfig,
+  saveConfig,
+} from "@/lib/storage";
 import Link from "next/link";
 
 type Item = Banner & { enabled: boolean };
@@ -19,8 +24,12 @@ export default function SettingsForm() {
     const cfg = loadConfig();
 
     // Ensure enabledIds only includes existing banners; preserve order
-    const validIds = cfg.enabledIds.filter(id => banners.some(b => b.id === id));
-    const missing = banners.map(b => b.id).filter(id => !validIds.includes(id));
+    const validIds = cfg.enabledIds.filter((id) =>
+      banners.some((b) => b.id === id),
+    );
+    const missing = banners
+      .map((b) => b.id)
+      .filter((id) => !validIds.includes(id));
     const combined = [...validIds, ...missing];
 
     setAll(banners);
@@ -33,26 +42,31 @@ export default function SettingsForm() {
     const enabledSet = new Set(enabledIds);
     // preserve order of enabledIds first, then the rest
     const ordered = [
-      ...enabledIds.map(id => all.find(b => b.id === id)).filter(Boolean) as Banner[],
-      ...all.filter(b => !enabledSet.has(b.id))
+      ...(enabledIds
+        .map((id) => all.find((b) => b.id === id))
+        .filter(Boolean) as Banner[]),
+      ...all.filter((b) => !enabledSet.has(b.id)),
     ];
-    return ordered.map(b => ({ ...b, enabled: enabledSet.has(b.id) }));
+    return ordered.map((b) => ({ ...b, enabled: enabledSet.has(b.id) }));
   }, [all, enabledIds]);
 
   function toggle(id: string) {
-    setEnabledIds(prev => {
+    setEnabledIds((prev) => {
       const set = new Set(prev);
-      if (set.has(id)) set.delete(id); else set.add(id);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
       // preserve existing order; when adding, append to the end
-      return Array.from(all.reduce<string[]>((acc, b) => {
-        if (set.has(b.id)) acc.push(b.id);
-        return acc;
-      }, []));
+      return Array.from(
+        all.reduce<string[]>((acc, b) => {
+          if (set.has(b.id)) acc.push(b.id);
+          return acc;
+        }, []),
+      );
     });
   }
 
   function move(id: string, dir: "up" | "down") {
-    setEnabledIds(prev => {
+    setEnabledIds((prev) => {
       const arr = [...prev];
       const i = arr.indexOf(id);
       if (i === -1) return prev;
@@ -67,7 +81,7 @@ export default function SettingsForm() {
     const cfg: BannerConfig = {
       enabledIds,
       durationMs: Math.max(1500, durationMs),
-      transition
+      transition,
     };
     saveConfig(cfg);
     setSaved(new Date().toLocaleTimeString());
@@ -78,31 +92,52 @@ export default function SettingsForm() {
     <div className="container">
       <h1 style={{ marginBottom: 12 }}>Settings</h1>
       <p style={{ color: "var(--muted)", marginTop: 0, marginBottom: 24 }}>
-        Select banners, set order, and configure timing/transition. Changes are saved in <code>localStorage</code>.
+        Select banners, set order, and configure timing/transition. Changes are
+        saved in <code>localStorage</code>.
       </p>
 
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 24,
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+        }}
+      >
         <div style={{ flex: "1 1 600px", minWidth: 420 }}>
           <h3 style={{ margin: "8px 0 12px" }}>Banners</h3>
           <div style={{ display: "grid", gap: 10 }}>
-            {items.map(b => (
+            {items.map((b) => (
               <div className="banner-item" key={b.id}>
                 <div className="thumb">
                   <img src={b.src} alt={b.title} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 600 }}>{b.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{b.id}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {b.id}
+                  </div>
                 </div>
                 <div className="controls">
                   {b.enabled ? (
                     <>
-                      <button onClick={() => move(b.id, "up")} title="Move up">↑</button>
-                      <button onClick={() => move(b.id, "down")} title="Move down">↓</button>
-                      <button onClick={() => toggle(b.id)} title="Disable">Disable</button>
+                      <button onClick={() => move(b.id, "up")} title="Move up">
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => move(b.id, "down")}
+                        title="Move down"
+                      >
+                        ↓
+                      </button>
+                      <button onClick={() => toggle(b.id)} title="Disable">
+                        Disable
+                      </button>
                     </>
                   ) : (
-                    <button onClick={() => toggle(b.id)} title="Enable">Enable</button>
+                    <button onClick={() => toggle(b.id)} title="Enable">
+                      Enable
+                    </button>
                   )}
                 </div>
               </div>
@@ -128,7 +163,9 @@ export default function SettingsForm() {
               <div style={{ marginBottom: 6 }}>Transition</div>
               <select
                 value={transition}
-                onChange={(e) => setTransition(e.target.value as "fade" | "slide")}
+                onChange={(e) =>
+                  setTransition(e.target.value as "fade" | "slide")
+                }
               >
                 <option value="fade">Fade</option>
                 <option value="slide">Slide</option>
@@ -137,7 +174,11 @@ export default function SettingsForm() {
 
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button onClick={save}>Save</button>
-              {saved && <div style={{ color: "var(--accent)", alignSelf: "center" }}>Saved at {saved}</div>}
+              {saved && (
+                <div style={{ color: "var(--accent)", alignSelf: "center" }}>
+                  Saved at {saved}
+                </div>
+              )}
             </div>
 
             <div style={{ marginTop: 16 }}>
@@ -145,7 +186,10 @@ export default function SettingsForm() {
             </div>
 
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16 }}>
-              To add/remove actual files, place images in <code>/public/banners</code> and reference them in <code>lib/defaultBanners.ts</code>. Runtime uploads to <code>public/</code> are not possible without a server or SDK.
+              To add/remove actual files, place images in{" "}
+              <code>/public/banners</code> and reference them in{" "}
+              <code>lib/defaultBanners.ts</code>. Runtime uploads to{" "}
+              <code>public/</code> are not possible without a server or SDK.
             </div>
           </div>
         </div>

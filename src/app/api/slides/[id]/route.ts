@@ -1,71 +1,28 @@
-// src/app/api/slides/[id]/route.ts
-import { NextRequest } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { signBannerMedia } from "@/lib/media/signBannerMedia";
+import { endpoint } from "@/server/errors";
+import { saveSlide, deleteSlide } from "@/server/signage";
+export const runtime = "nodejs";
+export const PUT = endpoint(
+  (req: Request, ctx: { params: Promise<{ id: string }> }) =>
+    saveSlide(req, ctx),
+);
+export const DELETE = endpoint(deleteSlide);
 
-const prisma = new PrismaClient();
-
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const slide = await prisma.slide.findUnique({
-    where: { id: params.id },
-    include: {
-      items: { orderBy: { order: "asc" }, include: { banner: { include: { template: { include: { fields: true } } } } } },
-    },
-  });
-  if (!slide) return new Response("Not found", { status: 404 });
-
-  const signedItems = await Promise.all(
-    slide.items.map(async (item) => ({
-      ...item,
-      banner: {
-        ...item.banner,
-        data: await signBannerMedia(item.banner.template, item.banner.data),
+import { playerSlide } from "@/server/signage-rendering";
+import { requireAccess } from "@/server/access";
+export const GET = endpoint(
+  async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
+    const preview = new URL(req.url).searchParams.has("preview");
+    const access = preview ? await requireAccess() : null;
+    const slide = await playerSlide((await ctx.params).id, access?.siteId);
+    if (!slide)
+      return Response.json({ error: "Slide not found." }, { status: 404 });
+    const etag = `"${slide.version}-${slide.site.version}-${Math.floor(Date.now() / 900000)}"`;
+    return Response.json(slide, {
+      headers: {
+        "Cache-Control": "no-store",
+        ETag: etag,
+        "X-Robots-Tag": "noindex, nofollow",
       },
-    }))
-  );
-  const signedSlide = { ...slide, items: signedItems };
-
-  // For client polling comparison
-  const etag = `"v${slide.version}-${slide.updatedAt.getTime()}"`;
-  return new Response(JSON.stringify(signedSlide), {
-    headers: {
-      "Content-Type": "application/json",
-      "ETag": etag,
-      "Cache-Control": "no-store",
-    },
-  });
-}
-
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = params.id;
-  const body = await req.json();
-  const { name, speedMs, effect, bannerIds } = body as { name: string; speedMs: number; effect: "FADE" | "SLIDE"; bannerIds: string[] };
-  if (!name || !Array.isArray(bannerIds)) return new Response("Invalid", { status: 400 });
-
-  const slide = await prisma.slide.findUnique({ where: { id } });
-  if (!slide) return new Response("Not found", { status: 404 });
-
-  await prisma.slideItem.deleteMany({ where: { slideId: id } });
-
-  const updated = await prisma.slide.update({
-    where: { id },
-    data: {
-      name,
-      speedMs: Math.max(1500, Number(speedMs || 8000)),
-      effect: effect ?? "FADE",
-      version: { increment: 1 },
-    },
-  });
-
-  await prisma.slideItem.createMany({
-    data: bannerIds.map((bannerId, i) => ({ slideId: id, bannerId, order: i })),
-  });
-
-  return Response.json(updated);
-}
-
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
-  const id = params.id;
-  await prisma.slide.delete({ where: { id } });
-  return new Response(null, { status: 204 });
-}
+    });
+  },
+);

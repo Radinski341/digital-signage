@@ -1,6 +1,16 @@
 // src/components/BannerForm.tsx
 "use client";
 import { useState } from "react";
+import dynamic from "next/dynamic";
+const RichTextEditor = dynamic(
+  () => import("@/components/admin/RichTextEditor"),
+  { ssr: false },
+);
+import { MediaPicker } from "@/components/admin/MediaPicker";
+import {
+  AiAssistant,
+  type AiAssistantHandle,
+} from "@/components/admin/AiAssistant";
 
 type Field = {
   id: string;
@@ -18,6 +28,11 @@ type Props = {
   initialData?: Record<string, any>;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
+  media?: any[];
+  aiRecordId?: string;
+  aiTemplateId?: string;
+  aiSourceMode?: string;
+  assistantRef?: React.Ref<AiAssistantHandle>;
 };
 
 function defaultValueForType(type: string): any {
@@ -38,16 +53,18 @@ function defaultValueForType(type: string): any {
   }
 }
 
-function FieldInput({
+export function FieldInput({
   field,
   value,
   setValue,
   setFile,
+  media = [],
 }: {
   field: Field;
   value: any;
   setValue: (val: any) => void;
   setFile?: (key: string, file: File | File[]) => void;
+  media?: any[];
 }) {
   const { key, label, type, required, isArray, config } = field;
 
@@ -59,8 +76,12 @@ function FieldInput({
       let newItem: any;
       if (itemSchema) {
         newItem = {};
-        for (let sk in itemSchema) {
-          newItem[sk] = defaultValueForType(itemSchema[sk].type);
+        for (const sk in itemSchema) {
+          newItem[sk] = defaultValueForType(
+            typeof itemSchema[sk] === "string"
+              ? itemSchema[sk]
+              : itemSchema[sk].type,
+          );
         }
       } else {
         newItem = defaultValueForType(type);
@@ -119,7 +140,7 @@ function FieldInput({
                     id: `${key}-${i}-${sk}`,
                     key: sk,
                     label: sf.label || sk,
-                    type: sf.type,
+                    type: typeof sf === "string" ? sf : sf.type,
                     required: sf.required || false,
                     isArray: false,
                     config: sf.config,
@@ -127,6 +148,7 @@ function FieldInput({
                   }}
                   value={item[sk]}
                   setValue={(val) => updateItem(i, { ...item, [sk]: val })}
+                  media={media}
                   setFile={() => {}}
                 />
               ))}
@@ -148,9 +170,15 @@ function FieldInput({
           {items.map((item: any, i: number) => (
             <div key={i} className="row">
               <FieldInput
-                field={{ ...field, label: "", isArray: false, id: `${key}-${i}` }}
+                field={{
+                  ...field,
+                  label: "",
+                  isArray: false,
+                  id: `${key}-${i}`,
+                }}
                 value={item}
                 setValue={(val) => updateItem(i, val)}
+                media={media}
                 setFile={() => {}}
               />
               <button type="button" onClick={() => removeItem(i)}>
@@ -227,24 +255,39 @@ function FieldInput({
         break;
       case "RICHTEXT":
         input = (
-          <textarea
+          <RichTextEditor
             value={value || ""}
-            onChange={(e) => setValue(e.target.value)}
-            rows={4}
-            required={required}
+            onChange={setValue}
+            media={media}
+            format="html"
+            includeImages={false}
           />
         );
         break;
       case "IMAGE":
         input = (
           <div>
-            {value && <img src={value} alt="" style={{ width: 200 }} />}
+            <MediaPicker
+              media={media}
+              value={media.find((m) => m.key === value)?.id}
+              onChange={(id, asset) =>
+                setValue(
+                  asset?.key || media.find((m) => m.id === id)?.key || null,
+                )
+              }
+              label={label}
+            />
+            {value &&
+              !media.find((m) => m.key === value) &&
+              /^https?:/.test(value) && (
+                <img src={value} alt="" style={{ width: 200 }} />
+              )}
             <input
               type="file"
               accept="image/*"
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
-                  setFile && setFile(key, e.target.files[0]);
+                  setFile?.(key, e.target.files[0]);
                 }
               }}
               required={required && !value}
@@ -264,14 +307,26 @@ function FieldInput({
   }
 }
 
-export default function BannerForm({ fields, initialData = {}, onSubmit, onCancel }: Props) {
+export default function BannerForm({
+  fields,
+  initialData = {},
+  onSubmit,
+  onCancel,
+  media = [],
+  aiRecordId,
+  aiTemplateId,
+  aiSourceMode,
+  assistantRef,
+}: Props) {
   const [formData, setFormData] = useState(initialData);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [fileMap, setFileMap] = useState<Record<string, File | File[]>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData();
-    for (let f of fields) {
+    for (const f of fields) {
       const key = f.key;
       const value = formData[key];
       if (f.type !== "IMAGE") {
@@ -283,11 +338,12 @@ export default function BannerForm({ fields, initialData = {}, onSubmit, onCance
       } else {
         if (f.isArray) {
           fd.set(`${key}_existing`, JSON.stringify(value || []));
+        } else {
+          fd.set(`${key}_existing`, value || "");
         }
-        // scalar image: if file in fileMap, appended below; else keep old (not set)
       }
     }
-    for (let key in fileMap) {
+    for (const key in fileMap) {
       const files = fileMap[key];
       if (Array.isArray(files)) {
         files.forEach((file) => fd.append(key, file));
@@ -295,21 +351,50 @@ export default function BannerForm({ fields, initialData = {}, onSubmit, onCance
         fd.append(key, files);
       }
     }
-    await onSubmit(fd);
+    setSaving(true);
+    setError("");
+    try {
+      await onSubmit(fd);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to save.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="grid">
+      {aiTemplateId && (
+        <AiAssistant
+          ref={assistantRef}
+          scope="banners"
+          recordId={aiRecordId}
+          templateId={aiTemplateId}
+          sourceMode={aiSourceMode}
+          getValues={() => formData}
+          setField={(key, value) =>
+            setFormData((current) => ({ ...current, [key]: value }))
+          }
+        />
+      )}
       {fields.map((f) => (
         <FieldInput
           key={f.id}
           field={f}
           value={formData[f.key]}
           setValue={(val) => setFormData((prev) => ({ ...prev, [f.key]: val }))}
+          media={media}
           setFile={(k, file) => setFileMap((prev) => ({ ...prev, [k]: file }))}
         />
       ))}
-      <button type="submit">Save</button>
+      <button type="submit" disabled={saving}>
+        {saving ? "Saving…" : "Save draft"}
+      </button>
+      {error && (
+        <p role="alert" className="field-error">
+          {error}
+        </p>
+      )}
       <button type="button" onClick={onCancel}>
         Cancel
       </button>

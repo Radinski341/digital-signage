@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Share the configuration template, never populated credentials.
+!.env.example
+/playwright-report/
+/test-results/
+/test-artifacts/
+/.auth/
+
+/public/test-fixtures/

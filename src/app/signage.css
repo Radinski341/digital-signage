@@ -1,0 +1,375 @@
+.signage-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  container-type: size;
+  overflow: hidden;
+}
+/* src/app/globals.css */
+/* shared */
+.tpl.full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial;
+}
+.tpl.full .bg,
+.tpl.full .cell,
+.tpl.full .side {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+h1 {
+  margin: 0;
+}
+
+/* ===== HERO DISH ===== */
+[data-template="hero-dish"] {
+  position: relative;
+}
+[data-template="hero-dish"] .overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65));
+}
+[data-template="hero-dish"] .content {
+  position: absolute;
+  left: 6cqw;
+  bottom: 10cqh;
+  max-width: 60cqw;
+}
+[data-template="hero-dish"] .subtitle {
+  font-size: 1.6cqw;
+  opacity: 0.9;
+  margin-bottom: 0.6cqw;
+}
+[data-template="hero-dish"] .title {
+  font-size: 5.2cqw;
+  font-weight: 900;
+  letter-spacing: 0.015em;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+[data-template="hero-dish"] .desc {
+  margin-top: 0.8cqw;
+  font-size: 1.4cqw;
+  line-height: 1.35;
+  color: #f0f0f0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+[data-template="hero-dish"] .price {
+  position: absolute;
+  right: 6cqw;
+  top: 8cqh;
+  font-size: 3.2cqw;
+  padding: 0.6cqw 1.2cqw;
+  border: 6px solid #f59e0b;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== TITLE + LIST ===== */
+[data-template="title-list"] {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+}
+@container (max-width: 900px) {
+  [data-template="title-list"] {
+    grid-template-columns: 1fr;
+  }
+}
+[data-template="title-list"] .side {
+  filter: brightness(0.9);
+}
+[data-template="title-list"] .panel {
+  padding: 6cqh 6cqw;
+  display: grid;
+  align-content: center;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3));
+}
+[data-template="title-list"] .title {
+  font-size: 4.2cqw;
+  font-weight: 800;
+  margin-bottom: 1cqw;
+}
+[data-template="title-list"] .items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6cqw;
+}
+[data-template="title-list"] .item {
+  font-size: 2cqw;
+  position: relative;
+  padding-left: 1.6cqw;
+}
+[data-template="title-list"] .item::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 2cqw;
+  line-height: 1;
+}
+[data-template="title-list"].accent-red .title {
+  color: #f87171;
+}
+[data-template="title-list"].accent-amber .title {
+  color: #fbbf24;
+}
+[data-template="title-list"].accent-emerald .title {
+  color: #34d399;
+}
+[data-template="title-list"].accent-sky .title {
+  color: #38bdf8;
+}
+
+/* ===== TWO IMAGE PROMO ===== */
+[data-template="two-image-promo"] .grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@container (max-width: 900px) {
+  [data-template="two-image-promo"] .grid {
+    grid-template-columns: 1fr;
+  }
+}
+[data-template="two-image-promo"] .cell {
+  object-fit: cover;
+  filter: brightness(0.8);
+}
+[data-template="two-image-promo"] .center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+[data-template="two-image-promo"] .badge {
+  display: inline-block;
+  font-size: 2cqw;
+  padding: 0.3cqw 0.9cqw;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 3px solid #f59e0b;
+  margin-bottom: 1cqw;
+}
+[data-template="two-image-promo"] .headline {
+  font-size: 5cqw;
+  font-weight: 900;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+}
+[data-template="two-image-promo"] .subline {
+  font-size: 2cqw;
+  opacity: 0.9;
+}
+
+/* ===== PRICE BOARD ===== */
+[data-template="price-board"] .board {
+  position: absolute;
+  inset: 0;
+  padding: 8cqh 8cqw;
+  background:
+    radial-gradient(
+      1200px 700px at 80% 10%,
+      rgba(245, 158, 11, 0.2),
+      transparent
+    ),
+    #0b0b0b;
+}
+[data-template="price-board"] .title {
+  font-size: 4.6cqw;
+  font-weight: 900;
+  margin-bottom: 2cqh;
+}
+[data-template="price-board"] .rows {
+  display: grid;
+  gap: 1.1cqh;
+  max-width: 70cqw;
+}
+[data-template="price-board"] .row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+  padding: 0.6cqh 0;
+}
+[data-template="price-board"] .name {
+  font-size: 2.2cqw;
+}
+[data-template="price-board"] .price {
+  font-size: 2.2cqw;
+  font-weight: 700;
+}
+[data-template="price-board"] .note {
+  margin-top: 2cqh;
+  font-size: 1.3cqw;
+  color: #cbd5e1;
+  opacity: 0.9;
+}
+
+/* ===== MENU ===== */
+[data-template="menu"] {
+  position: relative;
+  color: white;
+  font-family: "Times New Roman", serif;
+}
+
+[data-template="menu"] .overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 1)),
+    url("/images/menu-background.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+[data-template="menu"] .content {
+  position: relative;
+  z-index: 10;
+  height: 100cqh;
+  padding: 0 6cqw;
+}
+
+[data-template="menu"] .header {
+  position: absolute;
+  top: 12.5cqh;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: 100%;
+}
+
+[data-template="menu"] .restaurant-name {
+  font-size: 1.4cqw;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: white;
+  margin-bottom: 2cqh;
+  font-weight: 300;
+}
+
+[data-template="menu"] .menu-title {
+  font-size: 8cqw;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: white;
+  font-family: "Times New Roman", serif;
+}
+
+[data-template="menu"] .menu-grid {
+  position: absolute;
+  top: 48cqh;
+  left: 6cqw;
+  right: 6cqw;
+  bottom: 8cqh;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6cqw;
+}
+
+[data-template="menu"] .menu-section {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-template="menu"] .section-title {
+  font-size: 1.6cqw;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 1.5cqh 3cqw;
+  border: 2px solid white;
+  border-radius: 50px;
+  text-align: center;
+  margin-bottom: 4cqh;
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-family: "Times New Roman", serif;
+}
+
+[data-template="menu"] .menu-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5cqh;
+}
+
+[data-template="menu"] .menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1cqh;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+[data-template="menu"] .item-name {
+  font-size: 1.8cqw;
+  font-weight: 300;
+  flex: 1;
+  padding-right: 1cqw;
+  color: white;
+  font-family: "Times New Roman", serif;
+}
+
+[data-template="menu"] .item-price {
+  font-size: 1.8cqw;
+  font-weight: 400;
+  color: white;
+  min-width: fit-content;
+  font-family: "Times New Roman", serif;
+}
+
+.legacy-signage-admin .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.legacy-signage-admin .grid {
+  display: grid;
+  gap: 12px;
+}
+.legacy-signage-admin .row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.legacy-signage-admin .card {
+  border: 1px solid #2e3746;
+  border-radius: 12px;
+  padding: 16px;
+  background: #0f172a;
+}
+.legacy-signage-admin .table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.legacy-signage-admin .table th,
+.table td {
+  border-bottom: 1px solid #2e3746;
+  padding: 8px;
+  text-align: left;
+}
+.legacy-signage-admin .badge {
+  background: #1f2937;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}

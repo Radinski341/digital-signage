@@ -9,7 +9,11 @@ type Props = {
   transition: "fade" | "slide";
 };
 
-export default function BannerCarousel({ banners, durationMs, transition }: Props) {
+export default function BannerCarousel({
+  banners,
+  durationMs,
+  transition,
+}: Props) {
   const [idx, setIdx] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
@@ -17,9 +21,12 @@ export default function BannerCarousel({ banners, durationMs, transition }: Prop
 
   useEffect(() => {
     if (intervalRef.current) window.clearInterval(intervalRef.current);
-    intervalRef.current = window.setInterval(() => {
-      setIdx(prev => (prev + 1) % Math.max(effective.length, 1));
-    }, Math.max(durationMs, 1500));
+    intervalRef.current = window.setInterval(
+      () => {
+        setIdx((prev) => (prev + 1) % Math.max(effective.length, 1));
+      },
+      Math.max(durationMs, 1500),
+    );
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
@@ -27,7 +34,10 @@ export default function BannerCarousel({ banners, durationMs, transition }: Prop
 
   if (!effective.length) {
     return (
-      <div className="slider-root" style={{ display: "grid", placeItems: "center" }}>
+      <div
+        className="slider-root"
+        style={{ display: "grid", placeItems: "center" }}
+      >
         <div style={{ color: "#999" }}>No banners selected.</div>
       </div>
     );
@@ -40,10 +50,10 @@ export default function BannerCarousel({ banners, durationMs, transition }: Prop
           className="track"
           style={{
             width: `${effective.length * 100}%`,
-            transform: `translateX(-${idx * (100 / effective.length)}%)`
+            transform: `translateX(-${idx * (100 / effective.length)}%)`,
           }}
         >
-          {effective.map((b, i) => (
+          {effective.map((b) => (
             <div className="panel" key={b.id}>
               <img src={b.src} alt={b.title} />
             </div>

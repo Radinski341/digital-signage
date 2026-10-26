@@ -3,30 +3,43 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 enum SlideEffect {
-   FADE 
-   SLIDE 
+  FADE
+  SLIDE
 }
 
-
-/** Admin auth */
+/**
+ * Admin auth
+ */
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String           @id @default(uuid())
+  email           String           @unique
+  password        String
+  role            String           @default("admin")
+  sessionVersion  Int              @default(1)
+  disabled        Boolean          @default(false)
+  memberships     Membership[]
+  audits          AuditLog[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  aiConversations AiConversation[]
+  aiRequests      AiRequest[]
+  aiWorkspaces    AiWorkspace[]
 }
 
-/** Template catalog (definitions) */
+/**
+ * Template catalog (definitions)
+ */
 model Template {
+  siteId      String
+  site        Site            @relation(fields: [siteId], references: [id])
   id          String          @id @default(uuid())
-  key         String          @unique      // e.g. "hero-dish"
+  key         String // e.g. "hero-dish"
   name        String
   description String?
   fields      TemplateField[]
@@ -34,18 +47,20 @@ model Template {
   updatedAt   DateTime        @updatedAt
 
   Banner Banner[]
+
+  @@unique([siteId, key])
 }
 
 model TemplateField {
-  id         String     @id @default(uuid())
-  template   Template   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  template   Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
   templateId String
   key        String
   label      String
   type       FieldType
-  required   Boolean    @default(false)
-  isArray    Boolean    @default(false)
-  order      Int        @default(0)
+  required   Boolean   @default(false)
+  isArray    Boolean   @default(false)
+  order      Int       @default(0)
   config     Json?
 
   @@unique([templateId, key])
@@ -61,37 +76,758 @@ enum FieldType {
   COLOR
 }
 
-/** Banner = instance of a template with data */
+/**
+ * Banner = instance of a template with data
+ */
 model Banner {
-  id          String    @id @default(uuid())
-  template    Template  @relation(fields: [templateId], references: [id])
-  templateId  String
-  data        Json
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  status              PublicationStatus @default(DRAFT)
+  publicationSnapshot Json?
+  menuCategoryId      String?
+  menuCategory        MenuCategory?     @relation(fields: [menuCategoryId], references: [id])
+  menuItemId          String?
+  menuItem            MenuItem?         @relation(fields: [menuItemId], references: [id])
+  sourceLocale        String?
+  currency            String?
+  siteId              String
+  site                Site              @relation(fields: [siteId], references: [id])
+  id                  String            @id @default(uuid())
+  template            Template          @relation(fields: [templateId], references: [id])
+  templateId          String
+  data                Json
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   SlideItem SlideItem[]
+  version   Int         @default(1)
+
+  @@index([siteId])
 }
 
-/** Slides kept for later use */
+/**
+ * Slides kept for later use
+ */
 model Slide {
-  id         String      @id @default(uuid())
-  name       String
-  speedMs    Int         @default(8000)
-  effect     SlideEffect @default(FADE)
-  version    Int         @default(1)
-  items      SlideItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  status              PublicationStatus @default(DRAFT)
+  publicationSnapshot Json?
+  siteId              String
+  site                Site              @relation(fields: [siteId], references: [id])
+  id                  String            @id @default(uuid())
+  name                String
+  speedMs             Int               @default(8000)
+  effect              SlideEffect       @default(FADE)
+  version             Int               @default(1)
+  items               SlideItem[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }
 
 model SlideItem {
-  id        String   @id @default(uuid())
-  slide     Slide    @relation(fields: [slideId], references: [id], onDelete: Cascade)
-  slideId   String
-  banner    Banner   @relation(fields: [bannerId], references: [id])
-  bannerId  String
-  order     Int
+  id       String @id @default(uuid())
+  slide    Slide  @relation(fields: [slideId], references: [id], onDelete: Cascade)
+  slideId  String
+  banner   Banner @relation(fields: [bannerId], references: [id])
+  bannerId String
+  order    Int
 }
 
+enum MembershipRole {
+  OWNER
+  ADMIN
+  EDITOR
+}
 
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ActionType {
+  PAGE
+  EXTERNAL
+  PHONE
+  EMAIL
+  DIRECTIONS
+  ORDERING
+}
+
+model Site {
+  id              String                @id @default(uuid())
+  key             String                @unique
+  name            String
+  defaultLocale   String                @default("en")
+  currency        String?
+  timeZone        String?
+  domain          String?               @unique
+  version         Int                   @default(1)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  memberships     Membership[]
+  templates       Template[]
+  banners         Banner[]
+  slides          Slide[]
+  profile         RestaurantProfile?
+  branding        Branding?
+  locales         SiteLocale[]
+  locations       Location[]
+  categories      MenuCategory[]
+  items           MenuItem[]
+  tags            MenuTag[]
+  pages           Page[]
+  actions         Action[]
+  integrations    OrderingIntegration[]
+  navigation      Navigation[]
+  media           MediaAsset[]
+  uploads         UploadIntent[]
+  redirects       Redirect[]
+  audits          AuditLog[]
+  aiConversations AiConversation[]
+  aiRequests      AiRequest[]
+  aiWorkspaces    AiWorkspace[]
+}
+
+model Membership {
+  version  Int            @default(1)
+  disabled Boolean        @default(false)
+  id       String         @id @default(uuid())
+  siteId   String
+  site     Site           @relation(fields: [siteId], references: [id])
+  userId   String
+  user     User           @relation(fields: [userId], references: [id])
+  role     MembershipRole @default(EDITOR)
+
+  @@unique([siteId, userId])
+  @@index([userId])
+}
+
+model RestaurantProfile {
+  id           String               @id @default(uuid())
+  siteId       String               @unique
+  site         Site                 @relation(fields: [siteId], references: [id])
+  legalName    String?
+  phone        String?
+  email        String?
+  website      String?
+  priceRange   String?
+  cuisines     String[]
+  version      Int                  @default(1)
+  translations ProfileTranslation[]
+  socials      SocialLink[]
+}
+
+model ProfileTranslation {
+  id          String            @id @default(uuid())
+  profileId   String
+  profile     RestaurantProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+  summary     String            @default("")
+  description String            @default("")
+
+  @@unique([profileId, locale])
+}
+
+model SocialLink {
+  id        String            @id @default(uuid())
+  profileId String
+  profile   RestaurantProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  label     String
+  url       String
+  position  Int               @default(0)
+}
+
+model Branding {
+  id                String  @id @default(uuid())
+  siteId            String  @unique
+  site              Site    @relation(fields: [siteId], references: [id])
+  primaryColor      String  @default("#282828")
+  accentColor       String  @default("#383838")
+  textColor         String  @default("#101820")
+  backgroundColor   String  @default("#ffffff")
+  surfaceColor      String  @default("#ffffff")
+  headingFont       String  @default("montserrat")
+  bodyFont          String  @default("montserrat")
+  radius            Int     @default(22)
+  logoId            String?
+  alternativeLogoId String?
+  faviconId         String?
+  socialImageId     String?
+  version           Int     @default(1)
+}
+
+model SiteLocale {
+  version   Int                 @default(1)
+  id        String              @id @default(uuid())
+  siteId    String
+  site      Site                @relation(fields: [siteId], references: [id])
+  code      String
+  label     String
+  enabled   Boolean             @default(true)
+  direction String              @default("ltr")
+  strings   SystemTranslation[]
+
+  @@unique([siteId, code])
+}
+
+model SystemTranslation {
+  id       String     @id @default(uuid())
+  localeId String
+  locale   SiteLocale @relation(fields: [localeId], references: [id], onDelete: Cascade)
+  key      String
+  value    String
+
+  @@unique([localeId, key])
+}
+
+model Location {
+  id            String            @id @default(uuid())
+  siteId        String
+  site          Site              @relation(fields: [siteId], references: [id])
+  name          String
+  address       String
+  city          String
+  postalCode    String?
+  country       String
+  latitude      Decimal?          @db.Decimal(10, 7)
+  longitude     Decimal?          @db.Decimal(10, 7)
+  directionsUrl String?
+  phone         String?
+  email         String?
+  position      Int               @default(0)
+  version       Int               @default(1)
+  hours         OpeningInterval[]
+  exceptions    SpecialHours[]
+}
+
+model OpeningInterval {
+  id         String   @id @default(uuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  weekday    Int
+  opens      String
+  closes     String
+  nextDay    Boolean  @default(false)
+  position   Int      @default(0)
+}
+
+model SpecialHours {
+  id         String            @id @default(uuid())
+  locationId String
+  location   Location          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  date       String
+  label      String?
+  closed     Boolean           @default(false)
+  intervals  SpecialInterval[]
+
+  @@unique([locationId, date])
+}
+
+model SpecialInterval {
+  id        String       @id @default(uuid())
+  specialId String
+  special   SpecialHours @relation(fields: [specialId], references: [id], onDelete: Cascade)
+  opens     String
+  closes    String
+  nextDay   Boolean      @default(false)
+}
+
+model MenuCategory {
+  banners      Banner[]
+  id           String                @id @default(uuid())
+  siteId       String
+  site         Site                  @relation(fields: [siteId], references: [id])
+  slug         String
+  enabled      Boolean               @default(true)
+  position     Int                   @default(0)
+  imageId      String?
+  version      Int                   @default(1)
+  translations CategoryTranslation[]
+  items        MenuItem[]
+
+  @@unique([siteId, slug])
+}
+
+model CategoryTranslation {
+  id          String       @id @default(uuid())
+  categoryId  String
+  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+  description String       @default("")
+
+  @@unique([categoryId, locale])
+}
+
+model MenuItem {
+  banners      Banner[]
+  id           String            @id @default(uuid())
+  siteId       String
+  site         Site              @relation(fields: [siteId], references: [id])
+  categoryId   String
+  category     MenuCategory      @relation(fields: [categoryId], references: [id])
+  slug         String
+  price        Decimal           @db.Decimal(19, 4)
+  currency     String
+  status       PublicationStatus @default(DRAFT)
+  available    Boolean           @default(true)
+  featured     Boolean           @default(false)
+  position     Int               @default(0)
+  imageId      String?
+  actionId     String?
+  version      Int               @default(1)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  translations ItemTranslation[]
+  variants     MenuVariant[]
+  tags         ItemTag[]
+  images       MenuImage[]
+
+  @@unique([siteId, slug])
+  @@index([siteId, status, categoryId, position])
+}
+
+model ItemTranslation {
+  id              String   @id @default(uuid())
+  itemId          String
+  item            MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locale          String
+  name            String
+  description     String   @default("")
+  details         String   @default("")
+  detailsDocument Json?
+  seoTitle        String?
+  seoDescription  String?
+
+  @@unique([itemId, locale])
+}
+
+model MenuVariant {
+  id           String               @id @default(uuid())
+  itemId       String
+  item         MenuItem             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  price        Decimal              @db.Decimal(19, 4)
+  position     Int                  @default(0)
+  translations VariantTranslation[]
+}
+
+model VariantTranslation {
+  id        String      @id @default(uuid())
+  variantId String
+  variant   MenuVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locale    String
+  name      String
+
+  @@unique([variantId, locale])
+}
+
+model MenuTag {
+  version      Int              @default(1)
+  id           String           @id @default(uuid())
+  siteId       String
+  site         Site             @relation(fields: [siteId], references: [id])
+  key          String
+  kind         String
+  translations TagTranslation[]
+  items        ItemTag[]
+
+  @@unique([siteId, key])
+}
+
+model TagTranslation {
+  id     String  @id @default(uuid())
+  tagId  String
+  tag    MenuTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  locale String
+  name   String
+
+  @@unique([tagId, locale])
+}
+
+model ItemTag {
+  itemId String
+  item   MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    MenuTag  @relation(fields: [tagId], references: [id])
+
+  @@id([itemId, tagId])
+}
+
+model MenuImage {
+  id       String     @id @default(uuid())
+  itemId   String
+  item     MenuItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  mediaId  String
+  media    MediaAsset @relation(fields: [mediaId], references: [id])
+  position Int        @default(0)
+}
+
+model Page {
+  id           String            @id @default(uuid())
+  siteId       String
+  site         Site              @relation(fields: [siteId], references: [id])
+  internalName String
+  type         String            @default("CUSTOM")
+  status       PublicationStatus @default(DRAFT)
+  version      Int               @default(1)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  translations PageTranslation[]
+  sections     PageSection[]
+  revisions    ContentRevision[]
+  actions      Action[]
+  navigation   NavigationItem[]
+
+  @@index([siteId, status])
+}
+
+model PageTranslation {
+  siteId              String
+  publishedSlug       String?
+  id                  String  @id @default(uuid())
+  pageId              String
+  page                Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  locale              String
+  slug                String
+  title               String
+  seoTitle            String?
+  seoDescription      String?
+  canonicalUrl        String?
+  socialImageId       String?
+  ogTitle             String?
+  ogDescription       String?
+  noIndex             Boolean @default(false)
+  publishedRevisionId String?
+
+  @@unique([pageId, locale])
+  @@unique([siteId, locale, slug])
+  @@unique([siteId, locale, publishedSlug])
+}
+
+model PageSection {
+  id           String               @id @default(uuid())
+  pageId       String
+  page         Page                 @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type         String
+  position     Int                  @default(0)
+  hidden       Boolean              @default(false)
+  config       Json
+  translations SectionTranslation[]
+}
+
+model SectionTranslation {
+  id        String      @id @default(uuid())
+  sectionId String
+  section   PageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  locale    String
+  content   Json
+
+  @@unique([sectionId, locale])
+}
+
+model ContentRevision {
+  id        String           @id @default(uuid())
+  pageId    String
+  page      Page             @relation(fields: [pageId], references: [id])
+  locale    String
+  number    Int
+  snapshot  Json
+  actorId   String
+  createdAt DateTime         @default(now())
+  media     MediaReference[]
+
+  @@unique([pageId, locale, number])
+}
+
+model Action {
+  version       Int                  @default(1)
+  id            String               @id @default(uuid())
+  siteId        String
+  site          Site                 @relation(fields: [siteId], references: [id])
+  name          String
+  type          ActionType
+  destination   String?
+  pageId        String?
+  page          Page?                @relation(fields: [pageId], references: [id])
+  integrationId String?
+  integration   OrderingIntegration? @relation(fields: [integrationId], references: [id])
+  style         String               @default("primary")
+  icon          String?
+  enabled       Boolean              @default(true)
+  newTab        Boolean              @default(false)
+  translations  ActionTranslation[]
+}
+
+model ActionTranslation {
+  id       String @id @default(uuid())
+  actionId String
+  action   Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  locale   String
+  label    String
+
+  @@unique([actionId, locale])
+}
+
+model OrderingIntegration {
+  id       String   @id @default(uuid())
+  siteId   String
+  site     Site     @relation(fields: [siteId], references: [id])
+  provider String
+  label    String
+  url      String
+  enabled  Boolean  @default(true)
+  logoId   String?
+  version  Int      @default(1)
+  actions  Action[]
+}
+
+model Navigation {
+  version Int              @default(1)
+  id      String           @id @default(uuid())
+  siteId  String
+  site    Site             @relation(fields: [siteId], references: [id])
+  key     String
+  items   NavigationItem[]
+
+  @@unique([siteId, key])
+}
+
+model NavigationItem {
+  id           String                  @id @default(uuid())
+  navigationId String
+  navigation   Navigation              @relation(fields: [navigationId], references: [id], onDelete: Cascade)
+  pageId       String?
+  page         Page?                   @relation(fields: [pageId], references: [id])
+  url          String?
+  parentId     String?
+  parent       NavigationItem?         @relation("NavigationChildren", fields: [parentId], references: [id])
+  children     NavigationItem[]        @relation("NavigationChildren")
+  enabled      Boolean                 @default(true)
+  position     Int                     @default(0)
+  translations NavigationTranslation[]
+}
+
+model NavigationTranslation {
+  id     String         @id @default(uuid())
+  itemId String
+  item   NavigationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locale String
+  label  String
+
+  @@unique([itemId, locale])
+}
+
+model MediaAsset {
+  id           String           @id @default(uuid())
+  siteId       String
+  site         Site             @relation(fields: [siteId], references: [id])
+  key          String           @unique
+  url          String
+  thumbnailUrl String?
+  mime         String
+  size         Int
+  width        Int
+  height       Int
+  alt          String           @default("")
+  caption      String           @default("")
+  archived     Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  references   MediaReference[]
+  menuImages   MenuImage[]
+
+  @@index([siteId, archived, createdAt])
+}
+
+model MediaReference {
+  id         String           @id @default(uuid())
+  mediaId    String
+  media      MediaAsset       @relation(fields: [mediaId], references: [id])
+  targetType String
+  targetId   String
+  revisionId String?
+  revision   ContentRevision? @relation(fields: [revisionId], references: [id])
+
+  @@unique([mediaId, targetType, targetId])
+}
+
+model UploadIntent {
+  id        String   @id @default(uuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id])
+  actorId   String
+  key       String   @unique
+  mime      String
+  size      Int
+  expiresAt DateTime
+  state     String   @default("PENDING")
+  createdAt DateTime @default(now())
+}
+
+model Redirect {
+  id       String @id @default(uuid())
+  siteId   String
+  site     Site   @relation(fields: [siteId], references: [id])
+  fromPath String
+  toPath   String
+
+  @@unique([siteId, fromPath])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  siteId     String
+  site       Site     @relation(fields: [siteId], references: [id])
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String
+  targetId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([siteId, createdAt])
+}
+
+model LoginWindow {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+}
+
+model AiConversation {
+  workspace AiWorkspace?
+  id        String       @id @default(uuid())
+  siteId    String
+  site      Site         @relation(fields: [siteId], references: [id])
+  ownerId   String
+  owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  scope     String
+  recordId  String?
+  revision  Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  messages  AiMessage[]
+  requests  AiRequest[]
+
+  @@unique([siteId, ownerId, scope, recordId])
+}
+
+model AiMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  body           Json
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt, id])
+}
+
+model AiRequest {
+  id             String          @id @default(uuid())
+  conversationId String?
+  conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  siteId         String
+  site           Site            @relation(fields: [siteId], references: [id])
+  ownerId        String
+  owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  key            String
+  model          String
+  status         String          @default("PENDING")
+  inputTokens    Int             @default(0)
+  outputTokens   Int             @default(0)
+  result         Json?
+  expiresAt      DateTime
+  createdAt      DateTime        @default(now())
+
+  @@unique([conversationId, key])
+  @@index([siteId, createdAt])
+  @@index([ownerId, createdAt])
+}
+
+/// Private staged content; never queried by public routes.
+model AiWorkspace {
+  id             String         @id @default(uuid())
+  siteId         String
+  site           Site           @relation(fields: [siteId], references: [id])
+  ownerId        String
+  owner          User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  conversationId String         @unique
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  title          String
+  brief          String
+  locales        String[]
+  includeSignage Boolean        @default(false)
+  revision       Int            @default(0)
+  state          String         @default("DRAFT")
+  siteVersion    Int
+  receipt        Json?
+  acceptedKey    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  operations     AiOperation[]
+  runs           AiRun[]
+
+  @@index([siteId, ownerId, updatedAt])
+}
+
+model AiOperation {
+  id           String      @id @default(uuid())
+  workspaceId  String
+  workspace    AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  key          String
+  resource     String
+  targetId     String
+  isNew        Boolean
+  baseline     Json?
+  baselineHash String?
+  payload      Json
+  facts        Json
+  issues       Json
+  manual       Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([workspaceId, key])
+  @@unique([workspaceId, resource, targetId])
+}
+
+model AiRun {
+  id                        String        @id @default(uuid())
+  workspaceId               String
+  workspace                 AiWorkspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  requestId                 String        @unique
+  state                     String        @default("QUEUED")
+  sessionVersion            Int
+  leaseToken                String?
+  leaseUntil                DateTime?
+  heartbeatAt               DateTime?
+  input                     Json
+  output                    Json?
+  calls                     Int           @default(0)
+  budgetStartedCalls        Int           @default(0)
+  budgetStartedInputTokens  Int           @default(0)
+  budgetStartedOutputTokens Int           @default(0)
+  inputTokens               Int           @default(0)
+  outputTokens              Int           @default(0)
+  error                     String?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  events                    AiToolEvent[]
+
+  @@index([state, leaseUntil, createdAt])
+}
+
+model AiToolEvent {
+  id        String   @id @default(uuid())
+  runId     String
+  run       AiRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  callId    String
+  name      String
+  input     Json
+  output    Json?
+  createdAt DateTime @default(now())
+
+  @@unique([runId, callId])
+}

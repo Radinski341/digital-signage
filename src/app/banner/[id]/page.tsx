@@ -1,24 +1,39 @@
+import { notFound } from "next/navigation";
 import BannerRenderer from "@/components/BannerRenderer";
-import { signBannerMedia } from "@/lib/media/signBannerMedia";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient()
+import { renderBannerData } from "@/server/signage-rendering";
+import { requireAccess } from "@/server/access";
+import { db as prisma } from "@/server/db";
 
 export const revalidate = 0;
 
-export default async function BannerPage({ params }: { params: { id: string } }) {
+export default async function BannerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ draft?: string }>;
+}) {
   const banner = await prisma.banner.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: { template: { include: { fields: true } } },
   });
 
-  if (!banner) return <div style={{ padding: 24 }}>Not found</div>;
+  const draft = Boolean((await searchParams).draft);
+  if (!banner || (!draft && banner.status !== "PUBLISHED")) notFound();
+  if (draft && (await requireAccess()).siteId !== banner.siteId) notFound();
 
   // Sign all IMAGE fields before render
-  const signedData = await signBannerMedia(banner.template, banner.data);
+  const signedData = await renderBannerData(banner, !draft);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
-      <BannerRenderer templateKey={banner.template.key} data={signedData} />
+      <BannerRenderer
+        templateKey={banner.template.key}
+        data={signedData}
+        fields={banner.template.fields}
+      />
     </div>
   );
 }
+
+export const metadata = { robots: { index: false, follow: false } };

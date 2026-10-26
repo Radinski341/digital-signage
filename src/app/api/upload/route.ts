@@ -1,37 +1,18 @@
-import { NextRequest } from "next/server";
-import { IncomingForm, File } from "formidable";
-import { mkdir, rename } from "fs/promises";
-import path from "path";
-
+import { endpoint, AppError } from "@/server/errors";
+import { requireAccess } from "@/server/access";
+import { storeImage } from "@/server/media";
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-async function parseForm(req: NextRequest): Promise<{ fields: any; files: any }> {
-  return await new Promise((resolve, reject) => {
-    const form = new IncomingForm({ multiples: false, keepExtensions: true });
-    form.parse(req as any, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve({ fields, files });
-    });
-  });
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const { files } = await parseForm(req);
-    const f = (files.file as File);
-    if (!f) return new Response(JSON.stringify({ error: "No file" }), { status: 400 });
-
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadsDir, { recursive: true });
-
-    const fileName = `${Date.now()}-${f.originalFilename}`;
-    const dest = path.join(uploadsDir, fileName);
-    await rename(f.filepath, dest);
-
-    const publicUrl = `/uploads/${fileName}`;
-    return new Response(JSON.stringify({ url: publicUrl }), { status: 200 });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-  }
-}
+export const POST = endpoint(async (req: Request) => {
+  const { siteId } = await requireAccess("content", req);
+  if (Number(req.headers.get("content-length") ?? 0) > 4_000_000)
+    throw new AppError(413, "Use the Media Library for larger images.");
+  const form = await req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) throw new AppError(422, "Choose an image.");
+  const media = await storeImage(
+    siteId,
+    Buffer.from(await file.arrayBuffer()),
+    file.type,
+  );
+  return Response.json({ ...media, url: media.url }, { status: 201 });
+});
