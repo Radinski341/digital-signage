@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { claimBuilderRun, processBuilderRun } from "@/server/ai/worker";
 import { db } from "@/server/db";
 import { requireAccess } from "@/server/access";
 import { endpoint, AppError } from "@/server/errors";
@@ -22,7 +23,8 @@ import {
   activeRunStates,
   type WorkspaceResource,
 } from "@/modules/ai/workspace";
-export const maxDuration = 120;
+export const runtime = "nodejs";
+export const maxDuration = 300;
 export const POST = endpoint(
   async (
     request: Request,
@@ -30,6 +32,15 @@ export const POST = endpoint(
   ) => {
     const a = await requireAccess("content", request);
     const { id, action } = await context.params;
+    if (action === "step") {
+      // Authorization precedes claiming; HTTP callers can only advance their own proposal.
+      await ownedWorkspace(a, id);
+      const run = await claimBuilderRun(id);
+      if (run) await processBuilderRun(run);
+      return Response.json({ processed: !!run }, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
     const text = await request.text();
     if (text.length > 350000)
       throw new AppError(413, "This proposal edit is too large.");

@@ -62,6 +62,6 @@ Keep site/role/resource checks in server entry points and validate every nested 
 
 Apply the additive `20261023075000_modal_ai` migration and configure a server-only `OPENAI_API_KEY` to enable modal AI chat. Every request uses `gpt-6-luna`. Configure OpenAI project billing alerts and the application's database-backed allowances; allow up to 120 seconds for the AI route. No API key is needed for manual editing or automated mocked tests. See [AI configuration and maintenance](ai-assistant.md) for privacy, history cleanup, limits and the explicit live smoke test.
 
-## Central AI worker
+## Website Assistant execution
 
-Run `npm run ai:worker` under persistent process supervision alongside the web app (a separate Node host for Vercel deployments). Supply the same database/site/OpenAI configuration and generated Prisma client. The queue uses PostgreSQL leases and checkpoints, allowing worker restarts without duplicating content tools. Monitor worker restarts, heartbeat age, failed runs, database connections and provider budgets. Web readiness does not imply worker readiness. Review [builder deployment, limits, privacy and recovery](ai-website-builder.md) before enabling whole-site generation.
+The Website Assistant advances saved generation rounds through authenticated Vercel requests while its page is open. Enable Fluid compute and deploy the web app with the database, generated Prisma client and `OPENAI_API_KEY`. No persistent worker is required. Reopening a proposal continues queued work; interrupted steps recover after their lease expires. Monitor function errors, heartbeat age and provider budgets. See [builder deployment and recovery](ai-website-builder.md).

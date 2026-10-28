@@ -29,11 +29,11 @@ Use decimal strings for money, separate ISO currency, IANA time zones, explicit 
 Signage is included ONLY when enabled in the brief and explicitly requested. Reuse templates, canonical rendering, menu bindings and site branding. Do not modify existing TV content on a website-only request.
 Issues marked FACT_REVIEW_REQUIRED can be resolved by the employee in the bulk publication review. If only those remain, explain what needs review and finish; do not repeatedly restage records or invent evidence.
 Before finishing call validate_proposal. Return a concise human summary and grouped missing-fact questions, if any. All text should use the employee's chat language; generate records in the requested website languages. Explain that content is ready for preview and acceptance only when validation permits. Never claim changes are already saved to the live CMS.`;
-export async function claimBuilderRun() {
+export async function claimBuilderRun(workspaceId?: string) {
   return db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<
       Array<{ id: string }>
-    >`SELECT id FROM "AiRun" WHERE state='QUEUED' OR (state='RUNNING' AND "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT 1 FOR UPDATE SKIP LOCKED`;
+    >`SELECT id FROM "AiRun" WHERE (${workspaceId ?? null}::text IS NULL OR "workspaceId" = ${workspaceId ?? null}) AND (state='QUEUED' OR (state='RUNNING' AND "leaseUntil" < NOW())) ORDER BY "createdAt" LIMIT 1 FOR UPDATE SKIP LOCKED`;
     if (!rows.length) return null;
     return tx.aiRun.update({
       where: { id: rows[0].id },

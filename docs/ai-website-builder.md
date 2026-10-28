@@ -6,15 +6,11 @@ Open **Website Assistant** in the admin sidebar. This complements the existing p
 
 Use the supported Node 22 runtime and committed lockfile. Apply the additive migration `20261026090000_ai_website_builder` with `npm run db:deploy` after generating Prisma. It creates private proposal/job tables without changing restaurant records, existing conversations, or publication state.
 
-The web application and background worker need the same database, generated Prisma client, site configuration and server-only `OPENAI_API_KEY`. Start the normal Next.js application, then start a separate supervised process:
+The builder runs inside the Next.js application, including on Vercel. Configure the database, generated Prisma client, site settings and server-only `OPENAI_API_KEY` on the web deployment. Enable Vercel Fluid compute: the action route declares a 300-second maximum duration, and each request processes only one saved model/tool round (the model call has a 90-second timeout).
 
-```sh
-npm run ai:worker
-```
+Keep the Website Assistant page open during generation. It sends authenticated `POST /api/ai/workspaces/[id]/step` requests sequentially and refreshes progress between rounds. Closing the page stops further requests; reopen and select the proposal to continue from its saved checkpoint. An in-flight request may finish after the page closes. A terminated request becomes reclaimable when its two-minute lease expires. Multiple tabs are protected by PostgreSQL leases and existing tool checkpoints. No separate worker service, cron configuration or additional runtime is required. Existing queued proposals are picked up when opened.
 
-During local development use `npm run ai:worker:dev` instead; its watcher restarts the worker when imported source or local environment files change. Run only one worker command locally. After a production release, restart **every** worker replica together with the web application using the same code and budget settings. An old worker can claim a continuation between steps and enforce obsolete lifetime limits, even after a newer worker has started. Startup logs include the process ID, continuation-budget policy and effective limits; no credentials are logged. The workspace response includes continuation usage and configured limits so the UI can distinguish actual exhaustion from inconsistent worker settings.
-
-`tsx` is now a runtime dependency, so production workers can start after development dependencies are pruned. Generate Prisma during the build/release stage before pruning. The worker must run continuously on a Node host; do not start it from an HTTP request or rely on a Vercel function continuing after its response. A Vercel web deployment needs a separate persistent worker with access to the same PostgreSQL database. Monitor process restarts, database connectivity, and failed jobs. `/api/health` checks the web/database, not worker health. The admin shows stalled queued/running work and the last heartbeat.
+The optional `npm run ai:worker` / `npm run ai:worker:dev` commands remain available for installations that deliberately want continuous processing independent of the browser. They are unnecessary for the Vercel setup. Keep all processors on the same release and budget settings.
 
 All calls use the existing official OpenAI SDK, Responses API, `gpt-6-luna`, and `store: false`. There is no additional agent framework, queue service, fallback model, stock-image search or image generation. The worker may send selected public CDN thumbnails to Luna for visual matching; image inspection never establishes ingredients or allergen guarantees. Restrict public media to the configured trusted CDN and provide accurate captions and approved photography.
 
@@ -32,7 +28,7 @@ Actual provider usage is recorded after responses; failed/interrupted calls may 
 
 1. Select **New update request**, describe the changes you want, and provide confirmed restaurant facts and requested language codes. The default language is included automatically. Include signage explicitly if TVs should change.
 2. The worker inspects existing records, reusable assets, form schemas and the section registry. It improves existing content and creates missing content. Missing business facts are collected in grouped questions. Paste menu rows with dish name, price, ingredients and explicitly confirmed dietary/allergen information.
-3. Generation continues when the browser closes. Reopen the builder to see saved progress, chat and proposed records. Failed jobs can resume; cancellation fences outstanding work from changing the proposal.
+3. Keep the builder page open to advance generation; closing it preserves progress. Reopen the builder to see saved progress, chat and proposed records. Failed jobs can resume; cancellation fences outstanding work from changing the proposal.
 4. Review desktop/mobile previews, localized pages, dish details and metadata. Internal links stay inside the private proposal. Signage previews use the existing canonical renderer with projected menu data. Photos can be uploaded through Media Library in another tab, then selected by the agent or in a proposal editor.
 5. Use **Review / edit** to correct descriptions, prices, translations, sections or references with the existing CMS controls. Ordinary invalid draft text is retained and flagged rather than discarded. Malformed structured content stays visible for repair. Saving a reviewed record confirms its supplied business facts and protects it from subsequent AI changes; **Allow AI revisions** explicitly removes that protection.
 6. Resolve validation and concurrent-edit conflicts. Compare original, current CMS and proposed values before choosing to keep a proposal over current edits. Removing something from a proposal removes only that proposed operation; broken dependent references must be repaired.
@@ -52,6 +48,7 @@ The agent has the initiating employee's role. Editors cannot change branding, la
 
 - `GET/POST /api/ai/workspaces`: list private proposals or create one.
 - `GET /api/ai/workspaces/[id]`: current proposal, recent messages, job progress, validation, conflicts and preview/editor context.
+- `POST /api/ai/workspaces/[id]/step`: advance one authorized, leased generation round.
 - `POST /api/ai/workspaces/[id]/message`: queue an idempotent instruction, including questionnaire answers.
 - `POST /api/ai/workspaces/[id]/stage`: save a reviewed proposal record without changing live CMS data.
 - `POST /api/ai/workspaces/[id]/cancel`, `/resume`, `/unlock`, `/remove`, `/rebase`: revision-checked proposal operations.

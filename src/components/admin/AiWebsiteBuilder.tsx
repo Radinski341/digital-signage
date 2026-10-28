@@ -140,6 +140,34 @@ export default function AiWebsiteBuilder({
   const w = data?.workspace,
     running = activeRunStates.includes(data?.run?.state),
     applied = w?.state === "APPLIED";
+  const [stepError, setStepError] = useState("");
+  const runId = data?.run?.id;
+  useEffect(() => {
+    if (!id || !runId || !running) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function advance() {
+      let delay = 500;
+      try {
+        await api(`/api/ai/workspaces/${id}/step`, {});
+        if (!stopped) {
+          await mutate();
+          setStepError("");
+        }
+      } catch (error) {
+        delay = 5000;
+        if (!stopped) setStepError(error instanceof Error ? error.message : "Connection interrupted.");
+      }
+      if (!stopped) {
+        timer = setTimeout(advance, delay);
+      }
+    }
+    void advance();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [id, runId, running, mutate]);
   const last = data?.messages?.at(-1);
   const questions = last?.role === "assistant" ? last.body.questions || [] : [];
   const errors = (data?.issues || []).filter(
@@ -394,10 +422,16 @@ export default function AiWebsiteBuilder({
               new Date(data.run.heartbeatAt || data.run.createdAt).getTime() >
               30000 && (
               <p role="status" className="admin-notice">
-                Waiting for the background worker. Your proposal is safe; ask
-                your operator to check the AI worker if this continues.
+                Generation is processing or recovering its last saved step.
+                Keep this page open to continue; reopening it resumes saved progress.
               </p>
             )}
+          {running && (
+            <p role="status" className="admin-notice">
+              Keep this page open while generating. Progress is saved between steps.
+              {stepError && ` Connection interrupted; retrying automatically: ${stepError}`}
+            </p>
+          )}
           {["FAILED", "CANCELLED"].includes(data.run?.state) && (
             <div className="admin-error" role="alert">
               {data.run.error?.includes("reached its generation budget")
